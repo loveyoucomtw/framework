@@ -2422,11 +2422,13 @@ class Builder
 
         $parameters = $orders->pluck('column')->toArray();
 
+        $originals = $this->reverseColumnAliasingForCursorPagination($parameters);
+
         if (! is_null($cursor)) {
             if (count($parameters) === 1) {
-                $this->where($column = $parameters[0], $comparisonOperator, $cursor->parameter($column));
+                $this->where($originals[0], $comparisonOperator, $cursor->parameter($parameters[0]));
             } elseif (count($parameters) > 1) {
-                $this->whereRowValues($parameters, $comparisonOperator, $cursor->parameters($parameters));
+                $this->whereRowValues($originals, $comparisonOperator, $cursor->parameters($parameters));
             }
         }
 
@@ -2465,6 +2467,31 @@ class Builder
         }
 
         return collect($this->orders);
+    }
+
+    /**
+     * Reverse any aliases columns for column ordering.
+     *
+     * @param  array  $parameters
+     * @return array
+     */
+    protected function reverseColumnAliasingForCursorPagination(array $parameters)
+    {
+        return array_map(function ($parameter) {
+            if (! is_null($this->columns)) {
+                foreach ($this->columns as $column) {
+                    if (stripos($column, ' as ') !== false) {
+                        [$original, $alias] = explode(' as ', $column);
+
+                        if ($parameter === $alias) {
+                            return $original;
+                        }
+                    }
+                }
+            }
+
+            return $parameter;
+        }, $parameters);
     }
 
     /**
